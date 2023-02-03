@@ -110,7 +110,7 @@ crw_createTokenIter(crw_Str str) {
 }
 
 crw_PUBLICAPI crw_Status
-crw_codeScannerNext(crw_TokenIter* iter) {
+crw_tokenIterNext(crw_TokenIter* iter) {
     crw_Status result = crw_Failure;
     crw_Str    strLeft = crw_strSlice(iter->str, iter->offset, iter->str.len);
 
