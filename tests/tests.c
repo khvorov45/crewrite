@@ -75,16 +75,33 @@ test_cCChunkIter(void) {
         crw_CChunkIter iter = crw_createCChunkIter(input);
 
         prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefineConst);
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
         prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX 4")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.macro, crw_STR("MAX")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.value, crw_STR("4")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("4")));
+        prb_assert(!iter.curCChunk.poundDefine.paramList);
+        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
 
         prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefineConst);
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
         prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MIN \\\n45")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.macro, crw_STR("MIN")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.value, crw_STR("45")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MIN")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("45")));
+        prb_assert(!iter.curCChunk.poundDefine.paramList);
+        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
+    }
+
+    {
+        crw_Str        input = crw_STR("#define MAX(x, y) x > y ? x : y");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX(x, y) x > y ? x : y")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("x > y ? x : y")));
+        prb_assert(iter.curCChunk.poundDefine.paramList);
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.params, crw_STR("x, y")));
     }
 }
 
