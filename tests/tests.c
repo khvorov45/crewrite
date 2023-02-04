@@ -17,7 +17,7 @@ readFile(prb_Arena* arena, prb_Str path) {
 }
 
 function void
-test_tokenIter() {
+test_tokenIter(void) {
     crw_Str   input = crw_STR("int main() {\n\treturn 0;\n}\n");
     crw_Token expectedTokens[] = {
         {crw_TokenKind_Word, crw_STR("int")},
@@ -48,9 +48,33 @@ test_tokenIter() {
     prb_assert(crw_tokenIterNext(&tokenIter) == crw_Failure);
 }
 
+function void 
+test_cCChunkIter(void) {
+    {
+        crw_Str input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Invalid);
+        
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#include <stdint.h>")));
+        prb_assert(crw_streq(iter.curCChunk.poundInclude.path, crw_STR("stdint.h")));
+        prb_assert(iter.curCChunk.poundInclude.angleBrackets);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("# include \"cbuild.h\"")));
+        prb_assert(crw_streq(iter.curCChunk.poundInclude.path, crw_STR("cbuild.h")));
+        prb_assert(!iter.curCChunk.poundInclude.angleBrackets);
+
+        prb_assert(crw_cChunkIterNext(&iter) == crw_Failure);
+    }
+}
+
 int
 main() {
     test_tokenIter();
+    test_cCChunkIter();
 
     prb_Arena  arena_ = prb_createArenaFromVmem(1 * prb_GIGABYTE);
     prb_Arena* arena = &arena_;
