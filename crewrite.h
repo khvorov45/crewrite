@@ -57,6 +57,7 @@ typedef struct crw_TokenIter {
 typedef enum crw_CChunkKind {
     crw_CChunkKind_Invalid,
     crw_CChunkKind_PoundInclude,
+    crw_CChunkKind_PoundDefineConst,
 } crw_CChunkKind;
 
 typedef struct crw_Chunk_PoundInclude {
@@ -64,11 +65,17 @@ typedef struct crw_Chunk_PoundInclude {
     bool    angleBrackets;
 } crw_Chunk_PoundInclude;
 
+typedef struct crw_Chunk_PoundDefineConst {
+    crw_Str macro;
+    crw_Str value;
+} crw_Chunk_PoundDefineConst;
+
 typedef struct crw_CChunk {
     crw_CChunkKind kind;
     crw_Str        str;
     union {
-        crw_Chunk_PoundInclude poundInclude;
+        crw_Chunk_PoundInclude     poundInclude;
+        crw_Chunk_PoundDefineConst poundDefineConst;
     };
 } crw_CChunk;
 
@@ -215,10 +222,11 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
 
             case crw_TokenKind_Special: {
                 if (crw_streq(iter->tokenIter.curToken.str, crw_STR("#"))) {
-                    const char* poundStrStart = iter->tokenIter.curToken.str.ptr;
+                    intptr_t offsetPoundStrStart = iter->tokenIter.offset - 1;
                     if (crw_tokenIterNextMasked(&iter->tokenIter, crw_TokenKind_Whitespace)) {
                         if (iter->tokenIter.curToken.kind == crw_TokenKind_Word) {
                             crw_Str directive = iter->tokenIter.curToken.str;
+
                             if (crw_streq(directive, crw_STR("include"))) {
                                 if (crw_tokenIterNextMasked(&iter->tokenIter, crw_TokenKind_Whitespace)) {
                                     if (iter->tokenIter.curToken.kind == crw_TokenKind_Special && iter->tokenIter.curToken.str.len == 1) {
@@ -235,11 +243,57 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
                                                 path.len += iter->tokenIter.curToken.str.len;
                                             }
 
-                                            const char* onePastPoundStrEnd = iter->tokenIter.str.ptr + iter->tokenIter.offset;
-                                            crw_Str     poundStr = {poundStrStart, (intptr_t)((uintptr_t)onePastPoundStrEnd - (uintptr_t)poundStrStart)};
-
+                                            crw_Str poundStr = {iter->tokenIter.str.ptr + offsetPoundStrStart, iter->tokenIter.offset - offsetPoundStrStart};
                                             iter->curCChunk = (crw_CChunk) {.kind = crw_CChunkKind_PoundInclude, .str = poundStr, .poundInclude.path = path, .poundInclude.angleBrackets = openDelimiter == '<'};
                                         }
+                                    }
+                                }
+
+                            } else if (crw_streq(directive, crw_STR("define"))) {
+                                if (crw_tokenIterNextMasked(&iter->tokenIter, crw_TokenKind_Whitespace)) {
+                                    if (iter->tokenIter.curToken.kind == crw_TokenKind_Word) {
+                                        crw_Str macroName = iter->tokenIter.curToken.str;
+
+                                        bool     foundMacroValueStart = false;
+                                        intptr_t offsetMacroValueStart = iter->tokenIter.offset;
+
+                                        bool foundMacroValueEnd = false;
+                                        intptr_t onePastOffsetMacroValueEnd = iter->tokenIter.offset;
+
+                                        while (crw_tokenIterNext(&iter->tokenIter)) {
+                                            crw_Token tok = iter->tokenIter.curToken;
+                                            if (tok.kind == crw_TokenKind_Special && tok.str.len == 1 && tok.str.ptr[0] == '\\') {
+                                                crw_TokenIter tokIterCopy = iter->tokenIter;
+                                                if (crw_tokenIterNext(&tokIterCopy)) {
+                                                    crw_Token nextTok = tokIterCopy.curToken;
+                                                    if (nextTok.kind == crw_TokenKind_Whitespace && nextTok.str.len > 0) {
+                                                        char firstCh = nextTok.str.ptr[0];
+                                                        if (firstCh == '\n' || firstCh == '\r') {
+                                                            iter->tokenIter = tokIterCopy;
+                                                        }
+                                                    }
+                                                }
+                                            } else if (tok.kind == crw_TokenKind_Whitespace && tok.str.len > 0) {
+                                                char firstCh = tok.str.ptr[0];
+                                                if (firstCh == '\n' || firstCh == '\r') {
+                                                    foundMacroValueEnd = true;
+                                                    onePastOffsetMacroValueEnd = iter->tokenIter.offset - iter->tokenIter.curToken.str.len;
+                                                    break;
+                                                }
+                                            } else if (tok.kind != crw_TokenKind_Whitespace && !foundMacroValueStart) {
+                                                offsetMacroValueStart = iter->tokenIter.offset - iter->tokenIter.curToken.str.len;
+                                                foundMacroValueStart = true;
+                                            }
+                                        }
+
+                                        if (!foundMacroValueEnd) {
+                                            onePastOffsetMacroValueEnd = iter->tokenIter.offset;
+                                        }
+
+                                        crw_Str macroValue = {iter->tokenIter.str.ptr + offsetMacroValueStart, onePastOffsetMacroValueEnd - offsetMacroValueStart};
+                                        crw_Str poundStr = {iter->tokenIter.str.ptr + offsetPoundStrStart, onePastOffsetMacroValueEnd - offsetPoundStrStart};
+
+                                        iter->curCChunk = (crw_CChunk) {.kind = crw_CChunkKind_PoundDefineConst, .str = poundStr, .poundDefineConst.macro = macroName, .poundDefineConst.value = macroValue};
                                     }
                                 }
                             } else {

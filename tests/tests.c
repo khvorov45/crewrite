@@ -48,13 +48,13 @@ test_tokenIter(void) {
     prb_assert(crw_tokenIterNext(&tokenIter) == crw_Failure);
 }
 
-function void 
+function void
 test_cCChunkIter(void) {
     {
-        crw_Str input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
+        crw_Str        input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
         crw_CChunkIter iter = crw_createCChunkIter(input);
         prb_assert(iter.curCChunk.kind == crw_CChunkKind_Invalid);
-        
+
         prb_assert(crw_cChunkIterNext(&iter));
         prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
         prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#include <stdint.h>")));
@@ -68,6 +68,23 @@ test_cCChunkIter(void) {
         prb_assert(!iter.curCChunk.poundInclude.angleBrackets);
 
         prb_assert(crw_cChunkIterNext(&iter) == crw_Failure);
+    }
+
+    {
+        crw_Str        input = crw_STR("#define MAX 4\n#define MIN \\\n45");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefineConst);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX 4")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.macro, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.value, crw_STR("4")));
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefineConst);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MIN \\\n45")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.macro, crw_STR("MIN")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefineConst.value, crw_STR("45")));
     }
 }
 
