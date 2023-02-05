@@ -41,7 +41,6 @@ typedef enum crw_TokenKind {
     crw_TokenKind_Special,
     crw_TokenKind_Word,
 } crw_TokenKind;
-typedef uint32_t TokenKindMask;
 
 typedef struct crw_Token {
     crw_TokenKind kind;
@@ -53,6 +52,30 @@ typedef struct crw_TokenIter {
     intptr_t  offset;
     crw_Token curToken;
 } crw_TokenIter;
+
+typedef enum crw_CTokenKind {
+    crw_CTokenKind_Invalid,
+    crw_CTokenKind_Word,
+    crw_CTokenKind_WhitespaceNoNewline,
+    crw_CTokenKind_WhitespaceWithNewline,
+    crw_CTokenKind_EscapedWhitespaceWithNewline,
+    crw_CTokenKind_OpenRound,
+    crw_CTokenKind_CloseRound,
+    crw_CTokenKind_OpenCurly,
+    crw_CTokenKind_CloseCurly,
+    crw_CTokenKind_Semicolon,
+    crw_CTokenKind_Pound,
+} crw_CTokenKind;
+
+typedef struct crw_CToken {
+    crw_CTokenKind kind;
+    crw_Str        str;
+} crw_CToken;
+
+typedef struct crw_CTokenIter {
+    crw_TokenIter tokenIter;
+    crw_CToken    curCToken;
+} crw_CTokenIter;
 
 typedef enum crw_CChunkKind {
     crw_CChunkKind_Invalid,
@@ -93,6 +116,8 @@ crw_PUBLICAPI crw_Str        crw_strSlice(crw_Str str, intptr_t from, intptr_t o
 crw_PUBLICAPI bool           crw_tokenHasNewline(crw_Token token);
 crw_PUBLICAPI crw_TokenIter  crw_createTokenIter(crw_Str str);
 crw_PUBLICAPI crw_Status     crw_tokenIterNext(crw_TokenIter* iter);
+crw_PUBLICAPI crw_CTokenIter crw_createCTokenIter(crw_Str str);
+crw_PUBLICAPI crw_Status     crw_cTokenIterNext(crw_CTokenIter* iter);
 crw_PUBLICAPI crw_Status     crw_tokenIterNextNonWhitespace(crw_TokenIter* iter);
 crw_PUBLICAPI crw_Status     crw_tokenIterNextNonWhitespaceOrUnescapedNewline(crw_TokenIter* iter);
 crw_PUBLICAPI crw_CChunkIter crw_createCChunkIter(crw_Str str);
@@ -139,6 +164,25 @@ crw_strSlice(crw_Str str, intptr_t from, intptr_t onePastTo) {
     crw_assert(from <= onePastTo);
     crw_Str result = {str.ptr + from, onePastTo - from};
     return result;
+}
+
+crw_PUBLICAPI bool
+crw_strHasAny(crw_Str str, crw_Str chars) {
+    bool found = false;
+    for (intptr_t strInd = 0; strInd < str.len; strInd++) {
+        char strCh = str.ptr[strInd];
+        for (intptr_t charInd = 0; charInd < chars.len; charInd++) {
+            char charsCh = chars.ptr[charInd];
+            if (strCh == charsCh) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        }
+    }
+    return found;
 }
 
 crw_PUBLICAPI bool
@@ -210,6 +254,75 @@ crw_tokenIterNext(crw_TokenIter* iter) {
     return result;
 }
 
+crw_PUBLICAPI crw_CTokenIter
+crw_createCTokenIter(crw_Str str) {
+    crw_CTokenIter iter = {.tokenIter = crw_createTokenIter(str)};
+    return iter;
+}
+
+crw_PUBLICAPI crw_Status
+crw_cTokenIterNext(crw_CTokenIter* iter) {
+    crw_Status result = crw_Failure;
+
+    if (crw_tokenIterNext(&iter->tokenIter)) {
+        result = crw_Success;
+
+        switch (iter->tokenIter.curToken.kind) {
+            case crw_TokenKind_Invalid: {
+                iter->curCToken = (crw_CToken) {crw_CTokenKind_Invalid, iter->tokenIter.curToken.str};
+            } break;
+
+            case crw_TokenKind_Whitespace: {
+                iter->curCToken.str = iter->tokenIter.curToken.str;
+                iter->curCToken.kind = crw_strHasAny(iter->tokenIter.curToken.str, crw_STR("\r\n")) ? crw_CTokenKind_WhitespaceWithNewline : crw_CTokenKind_WhitespaceNoNewline;
+            } break;
+
+            case crw_TokenKind_Special: {
+                if (iter->tokenIter.curToken.str.len == 1) {
+                    switch (iter->tokenIter.curToken.str.ptr[0]) {
+                        case '\\': {
+                            crw_TokenIter tokenIterCopy = iter->tokenIter;
+                            if (crw_tokenIterNext(&tokenIterCopy)) {
+                                if (tokenIterCopy.curToken.kind == crw_TokenKind_Whitespace && crw_strHasAny(tokenIterCopy.curToken.str, crw_STR("\r\n"))) {
+                                    iter->curCToken.kind = crw_CTokenKind_EscapedWhitespaceWithNewline;
+                                    iter->curCToken.str = iter->tokenIter.curToken.str;
+                                    iter->curCToken.str.len += tokenIterCopy.curToken.str.len;
+                                    iter->tokenIter = tokenIterCopy;
+                                } else {
+                                    // TODO(khvorov)
+                                    crw_assert(!"unimplemented");
+                                }
+                            } else {
+                                iter->curCToken = (crw_CToken) {crw_CTokenKind_Invalid, iter->tokenIter.curToken.str};
+                            }
+                        } break;
+
+                        case '/': {
+                            // TODO(khvorov)
+                            crw_assert(!"unimplemented");
+                        } break;
+
+                        case '(': iter->curCToken = (crw_CToken) {crw_CTokenKind_OpenRound, iter->tokenIter.curToken.str}; break;
+                        case ')': iter->curCToken = (crw_CToken) {crw_CTokenKind_CloseRound, iter->tokenIter.curToken.str}; break;
+                        case '{': iter->curCToken = (crw_CToken) {crw_CTokenKind_OpenCurly, iter->tokenIter.curToken.str}; break;
+                        case '}': iter->curCToken = (crw_CToken) {crw_CTokenKind_CloseCurly, iter->tokenIter.curToken.str}; break;
+                        case ';': iter->curCToken = (crw_CToken) {crw_CTokenKind_Semicolon, iter->tokenIter.curToken.str}; break;
+                        case '#': iter->curCToken = (crw_CToken) {crw_CTokenKind_Pound, iter->tokenIter.curToken.str}; break;
+                    }
+                } else {
+                    iter->curCToken = (crw_CToken) {crw_CTokenKind_Invalid, iter->tokenIter.curToken.str};
+                }
+            } break;
+
+            case crw_TokenKind_Word: {
+                iter->curCToken = (crw_CToken) {crw_CTokenKind_Word, iter->tokenIter.curToken.str};
+            } break;
+        }
+    }
+
+    return result;
+}
+
 crw_PUBLICAPI crw_Status
 crw_tokenIterNextNonWhitespace(crw_TokenIter* iter) {
     crw_Status status = crw_Failure;
@@ -251,6 +364,7 @@ crw_PUBLICAPI crw_Status
 crw_cChunkIterNext(crw_CChunkIter* iter) {
     crw_Status result = crw_Failure;
 
+    // TODO(khvorov) Use c token iter
     if (crw_tokenIterNextNonWhitespace(&iter->tokenIter)) {
         result = crw_Success;
 

@@ -49,6 +49,48 @@ test_tokenIter(void) {
 }
 
 function void
+test_cTokenIter(void) {
+    crw_Str    input = crw_STR("#define MAX \\ \n 4\nint main() {\n\treturn 0;\n}\n");
+    crw_CToken expectedCTokens[] = {
+        {crw_CTokenKind_Pound, crw_STR("#")},
+        {crw_CTokenKind_Word, crw_STR("define")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_Word, crw_STR("MAX")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_EscapedWhitespaceWithNewline, crw_STR("\\ \n ")},
+        {crw_CTokenKind_Word, crw_STR("4")},
+        {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n")},
+        {crw_CTokenKind_Word, crw_STR("int")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_Word, crw_STR("main")},
+        {crw_CTokenKind_OpenRound, crw_STR("(")},
+        {crw_CTokenKind_CloseRound, crw_STR(")")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_OpenCurly, crw_STR("{")},
+        {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n\t")},
+        {crw_CTokenKind_Word, crw_STR("return")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_Word, crw_STR("0")},
+        {crw_CTokenKind_Semicolon, crw_STR(";")},
+        {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n")},
+        {crw_CTokenKind_CloseCurly, crw_STR("}")},
+        {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n")},
+    };
+
+    crw_CTokenIter cTokenIter = crw_createCTokenIter(input);
+    prb_assert(cTokenIter.curCToken.kind == crw_TokenKind_Invalid);
+    for (isize tokenInd = 0; tokenInd < prb_arrayCount(expectedCTokens); tokenInd++) {
+        crw_CToken expectedCToken = expectedCTokens[tokenInd];
+        prb_assert(crw_cTokenIterNext(&cTokenIter));
+        prb_assert(cTokenIter.curCToken.kind == expectedCToken.kind);
+        if (!crw_streq(cTokenIter.curCToken.str, expectedCToken.str)) {
+            prb_assert(!"failed");
+        }
+    }
+    prb_assert(crw_cTokenIterNext(&cTokenIter) == crw_Failure);
+}
+
+function void
 test_cCChunkIter(void) {
     {
         crw_Str        input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
@@ -108,6 +150,7 @@ test_cCChunkIter(void) {
 int
 main() {
     test_tokenIter();
+    test_cTokenIter();
     test_cCChunkIter();
 
     prb_Arena  arena_ = prb_createArenaFromVmem(1 * prb_GIGABYTE);
