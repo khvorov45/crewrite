@@ -92,6 +92,22 @@ test_cTokenIter(void) {
 
 function void
 test_cCChunkIter(void) {
+    // NOTE(khvorov) Whitespace joining
+    {
+        crw_Str inputs[] = {crw_STR(" \n "), crw_STR(" \n \\\n \t\n")};
+        for (isize ind = 0; ind < prb_arrayCount(inputs); ind++) {
+            crw_Str        input = inputs[ind];
+            crw_CChunkIter iter = crw_createCChunkIter(input);
+            prb_assert(iter.curCChunk.kind == crw_CChunkKind_Invalid);
+
+            prb_assert(crw_cChunkIterNext(&iter));
+            prb_assert(iter.curCChunk.kind == crw_CChunkKind_Whitespace);
+            prb_assert(crw_streq(iter.curCChunk.str, input));
+
+            prb_assert(crw_cChunkIterNext(&iter) == crw_Failure);
+        }
+    }
+
     {
         crw_Str        input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
         crw_CChunkIter iter = crw_createCChunkIter(input);
@@ -102,6 +118,10 @@ test_cCChunkIter(void) {
         prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#include <stdint.h>")));
         prb_assert(crw_streq(iter.curCChunk.poundInclude.path, crw_STR("stdint.h")));
         prb_assert(iter.curCChunk.poundInclude.angleBrackets);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Whitespace);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("\n")));
 
         prb_assert(crw_cChunkIterNext(&iter));
         prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
