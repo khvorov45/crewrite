@@ -133,12 +133,33 @@ test_cCChunkIter(void) {
     }
 
     {
+        crw_Str        input = crw_STR("#define MAX\n#define MIN(x, y)\n#define TEMP(s)");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX\n")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("")));
+        prb_assert(!iter.curCChunk.poundDefine.paramList);
+        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MIN(x, y)\n")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MIN")));
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("")));
+        prb_assert(iter.curCChunk.poundDefine.paramList);
+        prb_assert(crw_streq(iter.curCChunk.poundDefine.params, crw_STR("x, y")));
+    }
+
+    {
         crw_Str        input = crw_STR("#define MAX 4\n#define MIN \\\n45");
         crw_CChunkIter iter = crw_createCChunkIter(input);
 
         prb_assert(crw_cChunkIterNext(&iter));
         prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX 4")));
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX 4\n")));
         prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
         prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("4")));
         prb_assert(!iter.curCChunk.poundDefine.paramList);

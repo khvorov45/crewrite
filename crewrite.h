@@ -398,8 +398,55 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
                                 }
                             }
                         } else if (crw_streq(iter->cTokenIter.curCToken.str, crw_STR("define"))) {
-                            // TODO(khvorov)
-                            crw_assert(!"unimplemented");
+                            crw_cTokenIterSkipRange(&iter->cTokenIter, crw_CTokenKind_WhitespaceNoNewline, crw_CTokenKind_EscapedWhitespaceWithNewline);
+                            if (crw_cTokenIterNext(&iter->cTokenIter)) {
+                                if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_Word) {
+                                    crw_Str name = iter->cTokenIter.curCToken.str;
+                                    crw_cTokenIterSkipRange(&iter->cTokenIter, crw_CTokenKind_WhitespaceNoNewline, crw_CTokenKind_EscapedWhitespaceWithNewline);
+                                    if (crw_cTokenIterNext(&iter->cTokenIter)) {
+                                        intptr_t offsetBodyBegin = iter->cTokenIter.tokenIter.offset - iter->cTokenIter.tokenIter.curToken.str.len;
+                                        bool     paramList = false;
+                                        bool     foundClose = false;
+                                        crw_Str  params = {};
+                                        if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_OpenRound) {
+                                            paramList = true;
+                                            intptr_t offsetParamsBegin = iter->cTokenIter.tokenIter.offset;
+                                            while (crw_cTokenIterNext(&iter->cTokenIter)) {
+                                                if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_CloseRound) {
+                                                    foundClose = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (foundClose) {
+                                                intptr_t offsetParamsEnd = iter->cTokenIter.tokenIter.offset - iter->cTokenIter.tokenIter.curToken.str.len;
+                                                params = crw_strSlice(iter->cTokenIter.tokenIter.str, offsetParamsBegin, offsetParamsEnd);
+
+                                                crw_cTokenIterSkipRange(&iter->cTokenIter, crw_CTokenKind_WhitespaceNoNewline, crw_CTokenKind_EscapedWhitespaceWithNewline);
+                                                offsetBodyBegin = iter->cTokenIter.tokenIter.offset;
+                                            }
+                                        }
+
+                                        if (!paramList || foundClose) {
+                                            intptr_t onePastOffsetBodyEnd = iter->cTokenIter.tokenIter.str.len;
+                                            for (;;) {
+                                                if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_WhitespaceWithNewline) {
+                                                    onePastOffsetBodyEnd = iter->cTokenIter.tokenIter.offset - iter->cTokenIter.tokenIter.curToken.str.len;
+                                                    break;
+                                                }
+                                                if (crw_cTokenIterNext(&iter->cTokenIter) == crw_Failure) {
+                                                    break;
+                                                }
+                                            }
+
+                                            iter->curCChunk.kind = crw_CChunkKind_PoundDefine;
+                                            iter->curCChunk.poundDefine.name = name;
+                                            iter->curCChunk.poundDefine.paramList = paramList;
+                                            iter->curCChunk.poundDefine.params = params;
+                                            iter->curCChunk.poundDefine.body = crw_strSlice(iter->cTokenIter.tokenIter.str, offsetBodyBegin, onePastOffsetBodyEnd);
+                                        }
+                                    }
+                                }
+                            }
                         } else {
                             // TODO(khvorov)
                             crw_assert(!"unimplemented");
