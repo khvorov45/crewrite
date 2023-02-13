@@ -222,6 +222,25 @@ test_cCChunkIter(void) {
         prb_assert(!iter.curCChunk.comment.doubleSlash);
         prb_assert(crw_streq(iter.curCChunk.str, crw_STR("/**/")));
     }
+
+    {
+        crw_Str        input = crw_STR("typedef int i32;\ntypedef struct {\n   int x;\n}\n name1, name2  ;");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Typedef);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("typedef int i32;")));
+        prb_assert(crw_streq(iter.curCChunk.typeDef.type, crw_STR("int")));
+        prb_assert(crw_streq(iter.curCChunk.typeDef.names, crw_STR("i32")));
+
+        prb_assert(crw_cChunkIterNext(&iter));
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Typedef);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("typedef struct {\n   int x;\n}\n name1, name2  ;")));
+        prb_assert(crw_streq(iter.curCChunk.typeDef.type, crw_STR("struct {\n   int x;\n}")));
+        prb_assert(crw_streq(iter.curCChunk.typeDef.names, crw_STR("name1, name2")));
+    }
 }
 
 int
