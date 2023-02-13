@@ -69,8 +69,11 @@ typedef enum crw_CTokenKind {
     crw_CTokenKind_DoubleQuote,
     crw_CTokenKind_Semicolon,
     crw_CTokenKind_Pound,
-    crw_CTokenKind_SingleSlash,
+    crw_CTokenKind_Slash,
+    crw_CTokenKind_Star,
     crw_CTokenKind_DoubleSlash,
+    crw_CTokenKind_SlashStar,
+    crw_CTokenKind_StarSlash,
 } crw_CTokenKind;
 
 typedef struct crw_CToken {
@@ -311,7 +314,7 @@ crw_cTokenIterNext(crw_CTokenIter* iter) {
                         } break;
 
                         case '/': {
-                            iter->curCToken.kind = crw_CTokenKind_SingleSlash;
+                            iter->curCToken.kind = crw_CTokenKind_Slash;
                             iter->curCToken.str = iter->tokenIter.curToken.str;
                             crw_TokenIter tokenIterCopy = iter->tokenIter;
                             if (crw_tokenIterNext(&tokenIterCopy)) {
@@ -319,6 +322,25 @@ crw_cTokenIterNext(crw_CTokenIter* iter) {
                                     if (crw_streq(tokenIterCopy.curToken.str, crw_STR("/"))) {
                                         iter->tokenIter = tokenIterCopy;
                                         iter->curCToken.kind = crw_CTokenKind_DoubleSlash;
+                                        iter->curCToken.str = crw_strSlice(iter->tokenIter.str, iter->tokenIter.offset - 2, iter->tokenIter.offset);
+                                    } else if (crw_streq(tokenIterCopy.curToken.str, crw_STR("*"))) {
+                                        iter->tokenIter = tokenIterCopy;
+                                        iter->curCToken.kind = crw_CTokenKind_SlashStar;
+                                        iter->curCToken.str = crw_strSlice(iter->tokenIter.str, iter->tokenIter.offset - 2, iter->tokenIter.offset);
+                                    }
+                                }
+                            }
+                        } break;
+
+                        case '*': {
+                            iter->curCToken.kind = crw_CTokenKind_Star;
+                            iter->curCToken.str = iter->tokenIter.curToken.str;
+                            crw_TokenIter tokenIterCopy = iter->tokenIter;
+                            if (crw_tokenIterNext(&tokenIterCopy)) {
+                                if (tokenIterCopy.curToken.kind == crw_TokenKind_Special) {
+                                    if (crw_streq(tokenIterCopy.curToken.str, crw_STR("/"))) {
+                                        iter->tokenIter = tokenIterCopy;
+                                        iter->curCToken.kind = crw_CTokenKind_StarSlash;
                                         iter->curCToken.str = crw_strSlice(iter->tokenIter.str, iter->tokenIter.offset - 2, iter->tokenIter.offset);
                                     }
                                 }
@@ -483,6 +505,17 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
                 iter->curCChunk.comment.doubleSlash = true;
             } break;
 
+            case crw_CTokenKind_SlashStar: {
+                // NOTE(khvorov) C does not allow nested multiline comments
+                while (crw_cTokenIterNext(&iter->cTokenIter)) {
+                    if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_StarSlash) {
+                        break;
+                    }
+                }
+                iter->curCChunk.kind = crw_CChunkKind_Comment;
+                iter->curCChunk.comment.doubleSlash = false;
+            } break;
+
             case crw_CTokenKind_Word:
             case crw_CTokenKind_OpenRound:
             case crw_CTokenKind_CloseRound:
@@ -492,7 +525,9 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
             case crw_CTokenKind_CloseAngle:
             case crw_CTokenKind_SingleQuote:
             case crw_CTokenKind_DoubleQuote:
-            case crw_CTokenKind_SingleSlash:
+            case crw_CTokenKind_Slash:
+            case crw_CTokenKind_Star:
+            case crw_CTokenKind_StarSlash:
             case crw_CTokenKind_Semicolon: {
                 // TODO(khvorov)
                 crw_assert(!"unimplemented");
