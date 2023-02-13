@@ -69,6 +69,8 @@ typedef enum crw_CTokenKind {
     crw_CTokenKind_DoubleQuote,
     crw_CTokenKind_Semicolon,
     crw_CTokenKind_Pound,
+    crw_CTokenKind_SingleSlash,
+    crw_CTokenKind_DoubleSlash,
 } crw_CTokenKind;
 
 typedef struct crw_CToken {
@@ -86,6 +88,7 @@ typedef enum crw_CChunkKind {
     crw_CChunkKind_Whitespace,
     crw_CChunkKind_PoundInclude,
     crw_CChunkKind_PoundDefine,
+    crw_CChunkKind_Comment,
 } crw_CChunkKind;
 
 typedef struct crw_Chunk_PoundInclude {
@@ -100,12 +103,17 @@ typedef struct crw_Chunk_PoundDefine {
     crw_Str body;
 } crw_Chunk_PoundDefine;
 
+typedef struct crw_Chunk_Comment {
+    bool doubleSlash;
+} crw_Chunk_Comment;
+
 typedef struct crw_CChunk {
     crw_CChunkKind kind;
     crw_Str        str;
     union {
         crw_Chunk_PoundInclude poundInclude;
         crw_Chunk_PoundDefine  poundDefine;
+        crw_Chunk_Comment      comment;
     };
 } crw_CChunk;
 
@@ -303,8 +311,18 @@ crw_cTokenIterNext(crw_CTokenIter* iter) {
                         } break;
 
                         case '/': {
-                            // TODO(khvorov)
-                            crw_assert(!"unimplemented");
+                            iter->curCToken.kind = crw_CTokenKind_SingleSlash;
+                            iter->curCToken.str = iter->tokenIter.curToken.str;
+                            crw_TokenIter tokenIterCopy = iter->tokenIter;
+                            if (crw_tokenIterNext(&tokenIterCopy)) {
+                                if (tokenIterCopy.curToken.kind == crw_TokenKind_Special) {
+                                    if (crw_streq(tokenIterCopy.curToken.str, crw_STR("/"))) {
+                                        iter->tokenIter = tokenIterCopy;
+                                        iter->curCToken.kind = crw_CTokenKind_DoubleSlash;
+                                        iter->curCToken.str = crw_strSlice(iter->tokenIter.str, iter->tokenIter.offset - 2, iter->tokenIter.offset);
+                                    }
+                                }
+                            }
                         } break;
 
                         case '(': iter->curCToken = (crw_CToken) {crw_CTokenKind_OpenRound, iter->tokenIter.curToken.str}; break;
@@ -358,7 +376,7 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
     if (crw_cTokenIterNext(&iter->cTokenIter)) {
         result = crw_Success;
         iter->curCChunk.kind = crw_CChunkKind_Invalid;
-        intptr_t offsetChunkBegin = iter->cTokenIter.tokenIter.offset - iter->cTokenIter.tokenIter.curToken.str.len;
+        intptr_t offsetChunkBegin = iter->cTokenIter.tokenIter.offset - iter->cTokenIter.curCToken.str.len;
 
         switch (iter->cTokenIter.curCToken.kind) {
             case crw_TokenKind_Invalid: break;
@@ -455,6 +473,16 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
                 }
             } break;
 
+            case crw_CTokenKind_DoubleSlash: {
+                while (crw_cTokenIterNext(&iter->cTokenIter)) {
+                    if (iter->cTokenIter.curCToken.kind == crw_CTokenKind_WhitespaceWithNewline) {
+                        break;
+                    }
+                }
+                iter->curCChunk.kind = crw_CChunkKind_Comment;
+                iter->curCChunk.comment.doubleSlash = true;
+            } break;
+
             case crw_CTokenKind_Word:
             case crw_CTokenKind_OpenRound:
             case crw_CTokenKind_CloseRound:
@@ -464,6 +492,7 @@ crw_cChunkIterNext(crw_CChunkIter* iter) {
             case crw_CTokenKind_CloseAngle:
             case crw_CTokenKind_SingleQuote:
             case crw_CTokenKind_DoubleQuote:
+            case crw_CTokenKind_SingleSlash:
             case crw_CTokenKind_Semicolon: {
                 // TODO(khvorov)
                 crw_assert(!"unimplemented");

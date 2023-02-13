@@ -50,7 +50,7 @@ test_tokenIter(void) {
 
 function void
 test_cTokenIter(void) {
-    crw_Str    input = crw_STR("#define MAX \\ \n 4\nint main() {\n\treturn 0;\n}\n");
+    crw_Str    input = crw_STR("#define MAX \\ \n 4\nint main() {\n\treturn 0;\n}\n// comment");
     crw_CToken expectedCTokens[] = {
         {crw_CTokenKind_Pound, crw_STR("#")},
         {crw_CTokenKind_Word, crw_STR("define")},
@@ -75,6 +75,9 @@ test_cTokenIter(void) {
         {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n")},
         {crw_CTokenKind_CloseCurly, crw_STR("}")},
         {crw_CTokenKind_WhitespaceWithNewline, crw_STR("\n")},
+        {crw_CTokenKind_DoubleSlash, crw_STR("//")},
+        {crw_CTokenKind_WhitespaceNoNewline, crw_STR(" ")},
+        {crw_CTokenKind_Word, crw_STR("comment")},
     };
 
     crw_CTokenIter cTokenIter = crw_createCTokenIter(input);
@@ -94,7 +97,7 @@ function void
 test_cCChunkIter(void) {
     // NOTE(khvorov) Whitespace joining
     {
-        crw_Str inputs[] = {crw_STR(" \n "), crw_STR(" \n \\\n \t\n")};
+        crw_Str inputs[] = {crw_STR(" \n "), crw_STR(" \n \\\n \t\n"), crw_STR("\\\n ")};
         for (isize ind = 0; ind < prb_arrayCount(inputs); ind++) {
             crw_Str        input = inputs[ind];
             crw_CChunkIter iter = crw_createCChunkIter(input);
@@ -185,6 +188,21 @@ test_cCChunkIter(void) {
         prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("x > y ? x : y")));
         prb_assert(iter.curCChunk.poundDefine.paramList);
         prb_assert(crw_streq(iter.curCChunk.poundDefine.params, crw_STR("x, y")));
+    }
+
+    {
+        crw_Str        input = crw_STR("// comment\n// another comment");
+        crw_CChunkIter iter = crw_createCChunkIter(input);
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
+        prb_assert(iter.curCChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("// comment\n")));
+
+        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
+        prb_assert(iter.curCChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("// another comment")));
     }
 }
 
