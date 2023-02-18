@@ -239,6 +239,7 @@ test_cCBeforePPChunkIter(void) {
         prb_assert(crw_cBeforePPChunkIterNext(&iter));
         prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
         prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define x")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("x")));
     }
 }
 
