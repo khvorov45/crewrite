@@ -97,149 +97,148 @@ test_cTokenIter(void) {
 }
 
 function void
-test_cCChunkIter(void) {
+test_cCBeforePPChunkIter(void) {
     // NOTE(khvorov) Whitespace joining
     {
         crw_Str inputs[] = {crw_STR(" \n "), crw_STR(" \n \\\n \t\n"), crw_STR("\\\n ")};
         for (isize ind = 0; ind < prb_arrayCount(inputs); ind++) {
             crw_Str        input = inputs[ind];
-            crw_CChunkIter iter = crw_createCChunkIter(input);
-            prb_assert(iter.curCChunk.kind == crw_CChunkKind_Invalid);
+            crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
+            prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Invalid);
 
-            prb_assert(crw_cChunkIterNext(&iter));
-            prb_assert(iter.curCChunk.kind == crw_CChunkKind_Whitespace);
-            prb_assert(crw_streq(iter.curCChunk.str, input));
+            prb_assert(crw_cBeforePPChunkIterNext(&iter));
+            prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Whitespace);
+            prb_assert(crw_streq(iter.curBeforePPChunk.str, input));
 
-            prb_assert(crw_cChunkIterNext(&iter) == crw_Failure);
+            prb_assert(crw_cBeforePPChunkIterNext(&iter) == crw_Failure);
         }
     }
 
     {
         crw_Str        input = crw_STR("#include <stdint.h>\n# include \"cbuild.h\"");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Invalid);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Invalid);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#include <stdint.h>")));
-        prb_assert(crw_streq(iter.curCChunk.poundInclude.path, crw_STR("stdint.h")));
-        prb_assert(iter.curCChunk.poundInclude.angleBrackets);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundInclude);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#include <stdint.h>")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundInclude.path, crw_STR("stdint.h")));
+        prb_assert(iter.curBeforePPChunk.poundInclude.angleBrackets);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Whitespace);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("\n")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Whitespace);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("\n")));
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundInclude);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("# include \"cbuild.h\"")));
-        prb_assert(crw_streq(iter.curCChunk.poundInclude.path, crw_STR("cbuild.h")));
-        prb_assert(!iter.curCChunk.poundInclude.angleBrackets);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundInclude);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("# include \"cbuild.h\"")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundInclude.path, crw_STR("cbuild.h")));
+        prb_assert(!iter.curBeforePPChunk.poundInclude.angleBrackets);
 
-        prb_assert(crw_cChunkIterNext(&iter) == crw_Failure);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter) == crw_Failure);
     }
 
     {
         crw_Str        input = crw_STR("#define MAX\n#define MIN(x, y)\n#define TEMP(s)");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX\n")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("")));
-        prb_assert(!iter.curCChunk.poundDefine.paramList);
-        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define MAX\n")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.body, crw_STR("")));
+        prb_assert(!iter.curBeforePPChunk.poundDefine.paramList);
+        prb_assert(iter.curBeforePPChunk.poundDefine.params.len == 0);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MIN(x, y)\n")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MIN")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("")));
-        prb_assert(iter.curCChunk.poundDefine.paramList);
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.params, crw_STR("x, y")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define MIN(x, y)\n")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("MIN")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.body, crw_STR("")));
+        prb_assert(iter.curBeforePPChunk.poundDefine.paramList);
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.params, crw_STR("x, y")));
     }
 
     {
         crw_Str        input = crw_STR("#define MAX 4\n#define MIN \\\n45");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX 4\n")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("4")));
-        prb_assert(!iter.curCChunk.poundDefine.paramList);
-        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define MAX 4\n")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.body, crw_STR("4")));
+        prb_assert(!iter.curBeforePPChunk.poundDefine.paramList);
+        prb_assert(iter.curBeforePPChunk.poundDefine.params.len == 0);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MIN \\\n45")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MIN")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("45")));
-        prb_assert(!iter.curCChunk.poundDefine.paramList);
-        prb_assert(iter.curCChunk.poundDefine.params.len == 0);
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define MIN \\\n45")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("MIN")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.body, crw_STR("45")));
+        prb_assert(!iter.curBeforePPChunk.poundDefine.paramList);
+        prb_assert(iter.curBeforePPChunk.poundDefine.params.len == 0);
     }
 
     {
         crw_Str        input = crw_STR("#define MAX(x, y) x > y ? x : y");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_PoundDefine);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("#define MAX(x, y) x > y ? x : y")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.name, crw_STR("MAX")));
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.body, crw_STR("x > y ? x : y")));
-        prb_assert(iter.curCChunk.poundDefine.paramList);
-        prb_assert(crw_streq(iter.curCChunk.poundDefine.params, crw_STR("x, y")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define MAX(x, y) x > y ? x : y")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.name, crw_STR("MAX")));
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.body, crw_STR("x > y ? x : y")));
+        prb_assert(iter.curBeforePPChunk.poundDefine.paramList);
+        prb_assert(crw_streq(iter.curBeforePPChunk.poundDefine.params, crw_STR("x, y")));
     }
 
     {
         crw_Str        input = crw_STR("// comment\n// another comment");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
-        prb_assert(iter.curCChunk.comment.doubleSlash);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("// comment\n")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Comment);
+        prb_assert(iter.curBeforePPChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("// comment\n")));
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
-        prb_assert(iter.curCChunk.comment.doubleSlash);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("// another comment")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Comment);
+        prb_assert(iter.curBeforePPChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("// another comment")));
     }
 
     {
         crw_Str        input = crw_STR("/* comment\nline2 *//**/");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
-        prb_assert(!iter.curCChunk.comment.doubleSlash);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("/* comment\nline2 */")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Comment);
+        prb_assert(!iter.curBeforePPChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("/* comment\nline2 */")));
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Comment);
-        prb_assert(!iter.curCChunk.comment.doubleSlash);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("/**/")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Comment);
+        prb_assert(!iter.curBeforePPChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("/**/")));
     }
 
     {
-        crw_Str        input = crw_STR("typedef int i32;\ntypedef struct {\n   int x;\n}\n name1, name2  ;");
-        crw_CChunkIter iter = crw_createCChunkIter(input);
+        crw_Str        input = crw_STR("// comment\nint main() {return 0;}#define x");
+        crw_CBeforePPChunkIter iter = crw_createCBeforePPChunkIter(input);
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Typedef);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("typedef int i32;")));
-        prb_assert(crw_streq(iter.curCChunk.typeDef.type, crw_STR("int")));
-        prb_assert(crw_streq(iter.curCChunk.typeDef.names, crw_STR("i32")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Comment);
+        prb_assert(iter.curBeforePPChunk.comment.doubleSlash);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("// comment\n")));
 
-        prb_assert(crw_cChunkIterNext(&iter));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_Code);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("int main() {return 0;}")));
 
-        prb_assert(crw_cChunkIterNext(&iter));
-        prb_assert(iter.curCChunk.kind == crw_CChunkKind_Typedef);
-        prb_assert(crw_streq(iter.curCChunk.str, crw_STR("typedef struct {\n   int x;\n}\n name1, name2  ;")));
-        prb_assert(crw_streq(iter.curCChunk.typeDef.type, crw_STR("struct {\n   int x;\n}")));
-        prb_assert(crw_streq(iter.curCChunk.typeDef.names, crw_STR("name1, name2")));
+        prb_assert(crw_cBeforePPChunkIterNext(&iter));
+        prb_assert(iter.curBeforePPChunk.kind == crw_CBeforePPChunkKind_PoundDefine);
+        prb_assert(crw_streq(iter.curBeforePPChunk.str, crw_STR("#define x")));
     }
 }
 
@@ -247,7 +246,7 @@ int
 main() {
     test_tokenIter();
     test_cTokenIter();
-    test_cCChunkIter();
+    test_cCBeforePPChunkIter();
 
     prb_Arena  arena_ = prb_createArenaFromVmem(1 * prb_GIGABYTE);
     prb_Arena* arena = &arena_;
